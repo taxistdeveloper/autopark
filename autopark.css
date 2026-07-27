@@ -1138,6 +1138,48 @@ body {
     color: var(--ap-text);
 }
 
+.whats-new-version {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.78em;
+    color: var(--ap-muted);
+    font-weight: 600;
+}
+
+.whats-new-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.whats-new-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid var(--ap-border);
+    border-radius: var(--ap-radius);
+    background: var(--ap-surface-hover);
+    line-height: 1.45;
+}
+
+.whats-new-sha {
+    flex: 0 0 auto;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--ap-accent-hover);
+    background: rgba(0, 175, 202, 0.1);
+    border-radius: 0.35rem;
+    padding: 0.15rem 0.4rem;
+    margin-top: 0.1rem;
+}
+
+.whats-new-msg {
+    flex: 1 1 auto;
+    color: var(--ap-text);
+    font-size: 0.92rem;
+    font-weight: 500;
+}
+
 .ap-form-section {
     margin-bottom: 1.35rem;
     padding-bottom: 1.25rem;

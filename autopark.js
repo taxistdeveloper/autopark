@@ -9,8 +9,10 @@
     let spareSearchQuery = '';
     let sessionUser = null;
     const TENDER_COMMITTED_STORAGE = 'aigerim_tender_committed';
+    const WHATS_NEW_STORAGE = 'aigerim_whats_new_seen';
     /** @type {{ rowKey: string, type: 'spare'|'rent' }|null} */
     let pendingTenderCommit = null;
+    let whatsNewModal = null;
     let lastTenderResults = null;
     let lastTenderMultiSheet = false;
     let vehicles = [];
@@ -381,6 +383,74 @@
         renderRentTable();
         populateSpareVehicleSelect();
         renderSpareTable();
+        maybeShowWhatsNew();
+    }
+
+    function getWhatsNewPayload() {
+        var el = document.getElementById('whatsNewData');
+        if (!el) return null;
+        try {
+            var data = JSON.parse(el.textContent || '{}');
+            if (!data || typeof data !== 'object') return null;
+            return data;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function getWhatsNewSeen() {
+        try {
+            return localStorage.getItem(WHATS_NEW_STORAGE) || '';
+        } catch (_) {
+            return '';
+        }
+    }
+
+    function setWhatsNewSeen(version) {
+        if (!version) return;
+        try {
+            localStorage.setItem(WHATS_NEW_STORAGE, String(version));
+        } catch (_) { /* ignore */ }
+    }
+
+    function isWhatsNewForced() {
+        try {
+            return new URLSearchParams(window.location.search).get('whats_new') === '1';
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function markWhatsNewDismissed() {
+        var data = getWhatsNewPayload();
+        if (data && data.version) setWhatsNewSeen(data.version);
+    }
+
+    function maybeShowWhatsNew() {
+        var modalEl = document.getElementById('whatsNewModal');
+        if (!modalEl || !whatsNewModal) return;
+        var data = getWhatsNewPayload();
+        if (!data || !data.version) return;
+        var force = isWhatsNewForced();
+        if (!force && getWhatsNewSeen() === String(data.version)) return;
+        window.setTimeout(function () {
+            try { whatsNewModal.show(); } catch (_) { /* ignore */ }
+        }, 350);
+    }
+
+    function initWhatsNewModal() {
+        var modalEl = document.getElementById('whatsNewModal');
+        if (!modalEl || typeof bootstrap === 'undefined') return;
+        whatsNewModal = new bootstrap.Modal(modalEl);
+        modalEl.addEventListener('hide.bs.modal', markWhatsNewDismissed);
+        var okBtn = document.getElementById('whatsNewOkBtn');
+        if (okBtn) {
+            okBtn.addEventListener('click', markWhatsNewDismissed);
+        }
+        // Принудительный просмотр до логина (?whats_new=1)
+        if (isWhatsNewForced()) {
+            maybeShowWhatsNew();
+        }
     }
 
     function formatDateRange(startStr, endStr, endClass) {
@@ -2624,6 +2694,7 @@
             if (panelScreen) panelScreen.classList.remove('d-none');
             await loadVehicles();
             await showAdminPanelContent();
+            maybeShowWhatsNew();
             return;
         }
         if (loginScreen) loginScreen.classList.remove('d-none');
@@ -2641,7 +2712,11 @@
                         if (errEl) errEl.classList.add('d-none');
                         if (loginScreen) loginScreen.classList.add('d-none');
                         if (panelScreen) panelScreen.classList.remove('d-none');
-                        loadVehicles().then(function () { return showAdminPanelContent(); });
+                        loadVehicles().then(function () {
+                            return showAdminPanelContent();
+                        }).then(function () {
+                            maybeShowWhatsNew();
+                        });
                     } else {
                         if (errEl) {
                             errEl.textContent = user ? 'Доступ только для администратора.' : 'Неверный логин или пароль.';
@@ -2661,6 +2736,8 @@
     // ——— Инициализация ———
 
     document.addEventListener('DOMContentLoaded', function () {
+        initWhatsNewModal();
+
         if (document.getElementById('adminPage')) {
             initAdminPage();
             return;

@@ -649,6 +649,8 @@
         </div>
     </div>
 
+    <?php require __DIR__ . '/partials/whats_new.php'; ?>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="lib/xlsx.full.min.js"></script>
     <script src="autopark.js"></script>
