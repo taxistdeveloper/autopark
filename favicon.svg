@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <rect width="32" height="32" rx="8" fill="#00afca"/>
+  <path d="M6 20.5h1.2l1.1-3.2h8.4l1.4 3.2H20v-1.2h1.6c.7 0 1.3.5 1.4 1.2h1.3c-.1-1.3-1.2-2.3-2.5-2.3h-.4l-1.5-3.5c-.2-.4-.6-.7-1-.7h-9c-.5 0-.9.3-1.1.8L7.2 18H6c-.6 0-1 .4-1 1v.5c0 .6.4 1 1 1zm4.2-4.4h6.6l.7 1.8H9.7l.7-1.8z" fill="#fff"/>
+  <circle cx="11" cy="22.5" r="1.6" fill="#fff"/>
+  <circle cx="19.5" cy="22.5" r="1.6" fill="#fff"/>
+  <rect x="22.5" y="7" width="5.5" height="7" rx="1" fill="#fff"/>
+  <text x="25.25" y="12.2" text-anchor="middle" fill="#00afca" font-size="4.2" font-weight="800" font-family="Arial,sans-serif">KZ</text>
+</svg>
