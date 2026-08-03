@@ -2,13 +2,30 @@
 namespace App\Models;
 
 class Vehicle extends Model {
+    private static bool $schemaReady = false;
+
+    public function __construct(\PDO $db) {
+        parent::__construct($db);
+        $this->ensureSchema();
+    }
+
+    private function ensureSchema(): void {
+        if (self::$schemaReady) return;
+        self::$schemaReady = true;
+        try {
+            $this->db->exec("ALTER TABLE vehicles ADD COLUMN equipment_type VARCHAR(64) NULL DEFAULT NULL AFTER name");
+        } catch (\Throwable $e) {
+            // колонка уже есть
+        }
+    }
+
     public function all(string $search = ''): array {
         $sql = "SELECT * FROM vehicles ORDER BY name";
         $params = [];
         if ($search !== '') {
             $q = '%' . $search . '%';
-            $sql = "SELECT * FROM vehicles WHERE name LIKE ? OR owner LIKE ? OR grnz LIKE ? OR location LIKE ? OR application LIKE ? OR consumption_rate LIKE ? OR diesel_fuel LIKE ? OR year LIKE ? ORDER BY name";
-            $params = array_fill(0, 8, $q);
+            $sql = "SELECT * FROM vehicles WHERE name LIKE ? OR owner LIKE ? OR grnz LIKE ? OR location LIKE ? OR application LIKE ? OR consumption_rate LIKE ? OR diesel_fuel LIKE ? OR year LIKE ? OR equipment_type LIKE ? ORDER BY name";
+            $params = array_fill(0, 9, $q);
         }
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
@@ -23,7 +40,7 @@ class Vehicle extends Model {
     }
 
     public function create(array $data): int {
-        $cols = ['name','owner','grnz','consumption_rate','diesel_fuel','year','motor_hours_base','motor_hours_next1','motor_hours_next2','motor_hours_next3','motor_hours','application','location','insurance_date','insurance_deadline','tech_date','tech_deadline','tax_date','tax_deadline'];
+        $cols = ['name','equipment_type','owner','grnz','consumption_rate','diesel_fuel','year','motor_hours_base','motor_hours_next1','motor_hours_next2','motor_hours_next3','motor_hours','application','location','insurance_date','insurance_deadline','tech_date','tech_deadline','tax_date','tax_deadline'];
         $fields = $this->toDb($data);
         $keys = array_intersect_key($fields, array_flip($cols));
         $names = implode(',', array_keys($keys));
@@ -33,7 +50,7 @@ class Vehicle extends Model {
     }
 
     public function update(int $id, array $data): bool {
-        $cols = ['name','owner','grnz','consumption_rate','diesel_fuel','year','motor_hours_base','motor_hours_next1','motor_hours_next2','motor_hours_next3','motor_hours','application','location','insurance_date','insurance_deadline','tech_date','tech_deadline','tax_date','tax_deadline'];
+        $cols = ['name','equipment_type','owner','grnz','consumption_rate','diesel_fuel','year','motor_hours_base','motor_hours_next1','motor_hours_next2','motor_hours_next3','motor_hours','application','location','insurance_date','insurance_deadline','tech_date','tech_deadline','tax_date','tax_deadline'];
         $fields = $this->toDb($data);
         $keys = array_intersect_key($fields, array_flip($cols));
         $set = implode(', ', array_map(fn($k) => "`$k`=?", array_keys($keys)));
@@ -54,6 +71,7 @@ class Vehicle extends Model {
         return [
             'id' => (string) $row['id'],
             'name' => $row['name'] ?? '',
+            'equipmentType' => $row['equipment_type'] ?? null,
             'owner' => $row['owner'] ?? '',
             'grnz' => $row['grnz'] ?? null,
             'consumptionRate' => $row['consumption_rate'] ?? null,
@@ -78,6 +96,9 @@ class Vehicle extends Model {
     private function toDb(array $data): array {
         $map = [
             'name' => $data['name'] ?? null,
+            'equipment_type' => array_key_exists('equipmentType', $data)
+                ? (trim((string) ($data['equipmentType'] ?? '')) ?: '')
+                : null,
             'owner' => $data['owner'] ?? null,
             'grnz' => $data['grnz'] ?? null,
             'consumption_rate' => $data['consumptionRate'] ?? null,
@@ -97,7 +118,11 @@ class Vehicle extends Model {
             'tax_date' => $data['taxDate'] ?? null,
             'tax_deadline' => $data['taxDeadline'] ?? null,
         ];
-        return array_filter($map, fn($v) => $v !== null);
+        $keepEmptyEquipment = array_key_exists('equipmentType', $data);
+        return array_filter($map, function ($v, $k) use ($keepEmptyEquipment) {
+            if ($k === 'equipment_type') return $keepEmptyEquipment;
+            return $v !== null;
+        }, ARRAY_FILTER_USE_BOTH);
     }
 
     private function floatOrNull($v) {

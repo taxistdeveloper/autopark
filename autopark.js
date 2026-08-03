@@ -15,6 +15,8 @@
     let whatsNewModal = null;
     let lastTenderResults = null;
     let lastTenderMultiSheet = false;
+    /** Показывать только технику / машины (не работы и материалы). */
+    let tenderOnlyEquipment = true;
     let vehicles = [];
     let rents = [];
     let spares = [];
@@ -57,6 +59,7 @@
         if (!query) return true;
         const haystack = normalizeSearchValue([
             vehicle.name,
+            vehicle.equipmentType,
             vehicle.owner,
             vehicle.grnz,
             vehicle.consumptionRate,
@@ -494,12 +497,12 @@
             return { text: '<span class="cell-empty">—</span>', isDue: false };
         }
         if (vehicles.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="18" class="text-center text-muted py-4">Нет данных. Нажмите «Добавить ТС».</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="19" class="text-center text-muted py-4">Нет данных. Нажмите «Добавить ТС».</td></tr>';
             renderVehiclesCards([]);
             return;
         }
         if (filteredVehicles.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="18" class="text-center text-muted py-4">Ничего не найдено.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="19" class="text-center text-muted py-4">Ничего не найдено.</td></tr>';
             renderVehiclesCards([]);
             return;
         }
@@ -523,6 +526,7 @@
                 return `
 <tr data-id="${v.id}">
     <td class="cell-name">${escapeHtml(v.name)}</td>
+    <td class="text-nowrap small">${emptyCell(v.equipmentType)}</td>
     <td class="p-1"><input type="text" class="form-control form-control-sm application-input" value="${escapeHtml(v.application || '')}" placeholder="Не указано" data-id="${v.id}"></td>
     <td class="cell-owner">${escapeHtml(v.owner)}</td>
     <td><span class="grnz-plate">${escapeHtml(v.grnz || '')}</span></td>
@@ -580,7 +584,7 @@
   <div class="vehicle-card__head">
     <div>
       <h3 class="vehicle-card__title">${escapeHtml(v.name)}</h3>
-      <div class="vehicle-card__meta">${escapeHtml(v.owner || '—')}</div>
+      <div class="vehicle-card__meta">${escapeHtml(v.equipmentType ? v.equipmentType + ' · ' : '')}${escapeHtml(v.owner || '—')}</div>
     </div>
     <span class="grnz-plate">${escapeHtml(v.grnz || '')}</span>
   </div>
@@ -783,11 +787,12 @@
 
     function buildReportSummary() {
         const vehicles = getVehicles();
-        const headers = ['Наименование', 'Собственник', 'ГРНЗ', 'Год', 'Текущий м/ч', 'До след. ТО', 'Страховка', 'Тех. осмотр', 'Налог', 'Находится', 'Применение'];
+        const headers = ['Наименование', 'Вид техники', 'Собственник', 'ГРНЗ', 'Год', 'Текущий м/ч', 'До след. ТО', 'Страховка', 'Тех. осмотр', 'Налог', 'Находится', 'Применение'];
         const rows = vehicles.map(function (v) {
             const until = untilNextTOValue(v);
             return [
                 v.name || '—',
+                v.equipmentType || '—',
                 v.owner || '—',
                 v.grnz || '—',
                 v.year || '—',
@@ -1042,6 +1047,18 @@
             if (v) {
                 title.innerHTML = '<i class="bi bi-pencil-square text-primary me-1"></i> Редактировать ТС';
                 document.getElementById('vName').value = v.name || '';
+                var typeEl = document.getElementById('vEquipmentType');
+                if (typeEl) {
+                    var typeVal = v.equipmentType || '';
+                    typeEl.value = typeVal;
+                    if (typeVal && typeEl.value !== typeVal) {
+                        var opt = document.createElement('option');
+                        opt.value = typeVal;
+                        opt.textContent = typeVal;
+                        typeEl.appendChild(opt);
+                        typeEl.value = typeVal;
+                    }
+                }
                 document.getElementById('vOwner').value = v.owner || '';
                 document.getElementById('vGrnz').value = v.grnz || '';
                 document.getElementById('vConsumption').value = v.consumptionRate || '';
@@ -1063,6 +1080,8 @@
             }
         } else {
             title.innerHTML = '<i class="bi bi-truck text-primary me-1"></i> Добавить транспортное средство';
+            var typeElNew = document.getElementById('vEquipmentType');
+            if (typeElNew) typeElNew.value = '';
         }
         vehicleModal.show();
     }
@@ -1096,8 +1115,10 @@
             if (next3 == null) next3 = base + MOTOHOURS_TO_INTERVAL * 3;
         }
 
+        const typeElSave = document.getElementById('vEquipmentType');
         const item = {
             name: document.getElementById('vName').value.trim(),
+            equipmentType: typeElSave ? typeElSave.value.trim() : '',
             owner: document.getElementById('vOwner').value.trim(),
             grnz: document.getElementById('vGrnz').value.trim(),
             consumptionRate: document.getElementById('vConsumption').value.trim() || null,
@@ -1628,6 +1649,44 @@
         if (s.length < 2) return false;
         if (/^раздел\s+\d|^подраздел\s+[\d.]+/i.test(s)) return true;
         if (/^всего\s+по\s+(разделу|подразделу)/i.test(s)) return true;
+        return false;
+    }
+
+    /**
+     * Позиция похожа на технику / машины и механизмы (для сверки с парком),
+     * а не на работы или материалы.
+     */
+    function isLikelyTenderEquipmentRow(row) {
+        if (!row) return false;
+        const nameRaw = String(row.name || '').trim();
+        const unitRaw = String(row.unit || '').trim();
+        const unit = normalizeTenderMatchString(unitRaw);
+        const code = String(row.code || '').toLowerCase().replace(/\s+/g, '');
+        const sheet = String(row.sheet || '');
+        const rent = String(row.rentHint || '').trim();
+
+        if (/техник|машин|механизм|автопарк|транспорт|тс\b/i.test(sheet)) return true;
+        if (rent) return true;
+
+        if (/маш\s*ч|машино\s*час|машчас|маш\s*см|машино\s*смен|^маш\b/.test(unit) ||
+            /маш\.?\s*[-–—\/]?\s*ч|машино\s*[-–—]?\s*час|машчас/i.test(unitRaw) ||
+            /маш\.?\s*[-–—\/]?\s*ч|машиночас|машчас/i.test(nameRaw)) {
+            return true;
+        }
+
+        if (/^(эм|цэм|маш|тс|авт)[\d.\-_/]/i.test(code) || /(^|[^а-яa-z])эм[\d.\-_/]/i.test(code)) {
+            return true;
+        }
+
+        if (/экскаватор|бульдозер|погрузчик|автокран|кран[\s-]|(^|\s)кран($|\s)|самосвал|трактор|каток|грейдер|скрепер|автобетоно|бетононасос|бетоносмес|компрессор|генератор|манипулятор|тягач|полуприцеп|прицеп|автоцистерн|автовышк|автогидро|фронтальн|мини[\s-]?погруз|вилочн|телескопич|асфальтоуклад|автогудронатор|бурильн|сваебойн|виброкаток|дробильн|автомашин|автомобил|грузовик|фургон|микроавтобус|автобус|пикап|уаз|газел|камаз|маз\b|урал|зил|hyundai|volvo|caterpillar|\bcat\b|jcb|hitachi|komatsu|liebherr|doosan|bobcat|автопогруз|эвакуатор|мусоровоз|поливомоеч|снегоубор|дорожн(ая|ые)\s+машин/i.test(nameRaw)) {
+            return true;
+        }
+
+        if (/\b(машин[аы]|механизм[ыа]?|техник[аи]|транспортн)\b/i.test(nameRaw) &&
+            !/работ|устройств|укладк|монтаж|разработк|материал/i.test(nameRaw)) {
+            return true;
+        }
+
         return false;
     }
 
@@ -2197,6 +2256,14 @@
         }
     }
 
+    function filterTenderResultsForDisplay(results) {
+        if (!tenderOnlyEquipment) return results;
+        return results.filter(function (r) {
+            if (r.inPark) return true;
+            return isLikelyTenderEquipmentRow(r.row);
+        });
+    }
+
     function renderTenderCompareResults(results, multiSheet) {
         const tbody = document.getElementById('tenderTableBody');
         const emptyEl = document.getElementById('tenderEmpty');
@@ -2214,10 +2281,11 @@
         if (emptyEl) emptyEl.classList.add('d-none');
         lastTenderResults = results;
         lastTenderMultiSheet = multiSheet;
-        const inPark = results.filter(function (r) { return r.inPark; }).length;
+        const display = filterTenderResultsForDisplay(results);
+        const inPark = display.filter(function (r) { return r.inPark; }).length;
         const committedMap = getTenderCommittedMap();
-        const cc = countTenderCommittedInResults(results, committedMap);
-        const missing = results.length - inPark;
+        const cc = countTenderCommittedInResults(display, committedMap);
+        const missing = display.length - inPark;
         if (sumEl) {
             sumEl.classList.remove('d-none');
             var decLine = '';
@@ -2225,13 +2293,30 @@
                 var committedN = cc.spare + cc.rent;
                 decLine = ' Внесено в учёт (запчасти / аренда): <strong class="text-success">' + cc.spare + '</strong> / <strong class="text-info">' + cc.rent + '</strong>. Без записи: <strong class="text-muted">' + (missing - committedN) + '</strong>.';
             }
-            sumEl.innerHTML = 'Строк в смете: <strong>' + results.length + '</strong>. В парке: <strong class="text-success">' + inPark + '</strong>. Не в парке: <strong class="text-danger">' + missing + '</strong>.' + decLine;
+            var filterNote = tenderOnlyEquipment
+                ? ' Показано техники: <strong>' + display.length + '</strong> из ' + results.length + '.'
+                : ' Строк в смете: <strong>' + results.length + '</strong>.';
+            sumEl.innerHTML = filterNote + ' В парке: <strong class="text-success">' + inPark + '</strong>. Не в парке: <strong class="text-danger">' + missing + '</strong>.' + decLine;
+        }
+        if (!display.length) {
+            tbody.innerHTML = '';
+            if (emptyEl) {
+                emptyEl.classList.remove('d-none');
+                emptyEl.textContent = tenderOnlyEquipment
+                    ? 'Техника в смете не найдена. Снимите «Только техника», чтобы увидеть все строки.'
+                    : 'Нет строк для сравнения. Проверьте, что на листе есть колонка с наименованием (например «Наименование», «Техника», «Ресурс»).';
+            }
+            return;
+        }
+        if (emptyEl) {
+            emptyEl.classList.add('d-none');
+            emptyEl.textContent = 'Нет строк для сравнения. Проверьте, что на листе есть колонка с наименованием (например «Наименование», «Техника», «Ресурс»).';
         }
         function tenderTableCell(v) {
             if (v == null || String(v).trim() === '') return '—';
             return escapeHtml(String(v).trim());
         }
-        tbody.innerHTML = results.map(function (r) {
+        tbody.innerHTML = display.map(function (r) {
             const row = r.row;
             const npp = (row.rowNum !== undefined && String(row.rowNum).trim() !== '') ? tenderTableCell(row.rowNum) : String(r.index);
             const sheetNote = multiSheet && row.sheet ? ' <span class="text-muted small">(' + escapeHtml(row.sheet) + ')</span>' : '';
@@ -2421,6 +2506,7 @@
                 }
                 const keys = Object.keys(rows[0]);
                 const nameAliases = ['Наименование', 'наименование'];
+                const equipmentTypeAliases = ['Вид техники', 'вид техники', 'Тип техники', 'тип техники'];
                 const ownerAliases = ['Собственник', 'собственник'];
                 const grnzAliases = ['ГРНЗ', 'грнз'];
                 const consumptionAliases = ['Норма расхода', 'норма расхода'];
@@ -2481,6 +2567,7 @@
 
                     const v = {
                         name: name || '',
+                        equipmentType: getCell(row, keys, equipmentTypeAliases) || '',
                         owner: owner || '',
                         grnz: getCell(row, keys, grnzAliases) || null,
                         consumptionRate: getCell(row, keys, consumptionAliases) || null,
@@ -2528,6 +2615,7 @@
         }
         var headers = [
             'Наименование',
+            'Вид техники',
             'Собственник',
             'ГРНЗ',
             'Норма расхода',
@@ -2546,6 +2634,7 @@
         ];
         var exampleRow = [
             'Колесный погрузчик LW550KZ / 3 куб / Жез',
+            'Погрузчик',
             'ТОО "Райс KZ"',
             'AVD320M',
             '5-6 л/ч',
@@ -2786,6 +2875,16 @@
         var tenderInput = document.getElementById('tenderXlsInput');
         if (tenderInput) {
             tenderInput.addEventListener('change', handleTenderXls);
+        }
+        var tenderOnlyEquipmentEl = document.getElementById('tenderOnlyEquipment');
+        if (tenderOnlyEquipmentEl) {
+            tenderOnlyEquipment = !!tenderOnlyEquipmentEl.checked;
+            tenderOnlyEquipmentEl.addEventListener('change', function () {
+                tenderOnlyEquipment = !!tenderOnlyEquipmentEl.checked;
+                if (lastTenderResults && lastTenderResults.length) {
+                    renderTenderCompareResults(lastTenderResults, lastTenderMultiSheet);
+                }
+            });
         }
         var tenderTableBodyEl = document.getElementById('tenderTableBody');
         if (tenderTableBodyEl) {

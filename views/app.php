@@ -161,6 +161,7 @@
                                     <thead>
                                         <tr>
                                             <th>Наименование</th>
+                                            <th>Вид техники</th>
                                             <th>Применение</th>
                                             <th>Собственник</th>
                                             <th>ГРНЗ</th>
@@ -270,13 +271,17 @@
                 <div class="tab-pane fade" id="tenderTab" role="tabpanel" aria-labelledby="tender-tab">
                     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                         <h2 class="page-title fs-5"><i class="bi bi-clipboard2-check text-warning"></i> Смета тендер — сверка с парком</h2>
-                        <div>
+                        <div class="d-flex align-items-center flex-wrap gap-2">
+                            <div class="form-check mb-0">
+                                <input class="form-check-input" type="checkbox" id="tenderOnlyEquipment" checked>
+                                <label class="form-check-label small" for="tenderOnlyEquipment">Только техника</label>
+                            </div>
                             <label class="btn btn-warning text-dark mb-0" id="tenderUploadBtn"
                                 title="Выберите файл Excel со сметой тендера">
                                 <i class="bi bi-upload"></i> Загрузить смету (Excel)
                                 <input type="file" id="tenderXlsInput" class="visually-hidden" accept=".xls,.xlsx,.csv" tabindex="-1" aria-label="Файл сметы Excel">
                             </label>
-                            <button type="button" class="btn btn-outline-secondary btn-sm ms-1" id="tenderClearDecisionsBtn" title="Очистить привязки строк к записям запчастей и аренды (сами записи в базе не удаляются)">Сбросить привязки</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="tenderClearDecisionsBtn" title="Очистить привязки строк к записям запчастей и аренды (сами записи в базе не удаляются)">Сбросить привязки</button>
                         </div>
                     </div>
                     
@@ -335,6 +340,30 @@
                                 <div class="col-md-6">
                                     <label class="form-label" for="vName">Наименование <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control" id="vName" required placeholder="Например: Камаз 5511">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="vEquipmentType">Вид техники</label>
+                                    <select class="form-select" id="vEquipmentType">
+                                        <option value="">Не указан</option>
+                                        <option value="Экскаватор">Экскаватор</option>
+                                        <option value="Бульдозер">Бульдозер</option>
+                                        <option value="Погрузчик">Погрузчик</option>
+                                        <option value="Самосвал">Самосвал</option>
+                                        <option value="Автокран">Автокран</option>
+                                        <option value="Кран">Кран</option>
+                                        <option value="Трактор">Трактор</option>
+                                        <option value="Каток">Каток</option>
+                                        <option value="Грейдер">Грейдер</option>
+                                        <option value="Автомобиль">Автомобиль</option>
+                                        <option value="Грузовик">Грузовик</option>
+                                        <option value="Автобус">Автобус</option>
+                                        <option value="Манипулятор">Манипулятор</option>
+                                        <option value="Прицеп">Прицеп</option>
+                                        <option value="Полуприцеп">Полуприцеп</option>
+                                        <option value="Компрессор">Компрессор</option>
+                                        <option value="Генератор">Генератор</option>
+                                        <option value="Другое">Другое</option>
+                                    </select>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label" for="vOwner">Собственник <span class="text-danger">*</span></label>

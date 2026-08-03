@@ -116,7 +116,7 @@ if ($type === 'motohours') {
 }
 
 if ($type === 'summary') {
-    $headers = ['Наименование', 'Собственник', 'ГРНЗ', 'Год', 'Текущий м/ч', 'До след. ТО', 'Страховка', 'Тех. осмотр', 'Налог', 'Находится', 'Применение'];
+    $headers = ['Наименование', 'Вид техники', 'Собственник', 'ГРНЗ', 'Год', 'Текущий м/ч', 'До след. ТО', 'Страховка', 'Тех. осмотр', 'Налог', 'Находится', 'Применение'];
     $rows = [];
     foreach ($vehicles as $v) {
         $c = $v['motorHours'] ?? null;
@@ -127,7 +127,7 @@ if ($type === 'summary') {
             else $until = 0;
         }
         $rows[] = [
-            $v['name'] ?? '—', $v['owner'] ?? '—', $v['grnz'] ?? '—',
+            $v['name'] ?? '—', $v['equipmentType'] ?? '—', $v['owner'] ?? '—', $v['grnz'] ?? '—',
             $v['year'] ?? '—', $c ?? '—', $until !== null ? ($until === 0 ? 'Пора ТО!' : $until) : '—',
             formatDateRu($v['insuranceDeadline'] ?? null), formatDateRu($v['techDeadline'] ?? null), formatDateRu($v['taxDeadline'] ?? null),
             $v['location'] ?? '—', $v['application'] ?? '—'
