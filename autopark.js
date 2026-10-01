@@ -42,13 +42,32 @@
     }
 
     /** Toast instead of blocking browser alerts inside this app. */
+    function t(s, vars) {
+        if (typeof window.t === 'function') return window.t(s, vars);
+        return s == null ? '' : String(s);
+    }
+
+    function setI18n(el, key) {
+        if (!el) return;
+        el.setAttribute('data-i18n', key);
+        el.textContent = t(key);
+    }
+
     function alert(message) {
         const text = String(message == null ? '' : message);
         let tone = 'info';
         if (/импортировано|успеш|добавлен|сохранен|удалён|удален/i.test(text)) tone = 'success';
         else if (/выберите|укажите|заполните|не выбран/i.test(text)) tone = 'warning';
         else if (/ошибка|не удалось|не найден|необходим/i.test(text)) tone = 'danger';
-        notify(text, tone);
+        notify(t(text), tone);
+    }
+
+    function confirm(message) {
+        return window.confirm(t(String(message == null ? '' : message)));
+    }
+
+    function langIsEn() {
+        return window.AutoparkI18n && window.AutoparkI18n.getLang() === 'en';
     }
 
     function normalizeSearchValue(value) {
@@ -211,12 +230,12 @@
     }
 
     function actionLabel(action) {
-        const labels = { add: 'Добавление', edit: 'Редактирование', delete: 'Удаление', motohours: 'Моточасы' };
+        const labels = { add: t('Добавление'), edit: t('Редактирование'), delete: t('Удаление'), motohours: t('Моточасы') };
         return labels[action] || action;
     }
 
     function entityTypeLabel(type) {
-        const labels = { vehicle: 'ТС', rent: 'Аренда', spare: 'Запчасть', motohours: 'Моточасы' };
+        const labels = { vehicle: t('ТС'), rent: t('Аренда'), spare: t('Запчасть'), motohours: t('Моточасы') };
         return labels[type] || type;
     }
 
@@ -228,7 +247,7 @@
         const log = list.slice().reverse();
         if (log.length === 0) {
             tbody.innerHTML = '';
-            if (emptyEl) { emptyEl.classList.remove('d-none'); emptyEl.textContent = 'Записей пока нет.'; }
+            if (emptyEl) { emptyEl.classList.remove('d-none'); setI18n(emptyEl, 'Записей пока нет.'); }
             return;
         }
         if (emptyEl) emptyEl.classList.add('d-none');
@@ -239,7 +258,7 @@
                 '<td>' + escapeHtml(entry.user || '—') + '</td>' +
                 '<td>' + escapeHtml(entityTypeLabel(entry.entityType) + (entry.entityName ? ': ' + entry.entityName : '')) + '</td>' +
                 '<td class="small">' + escapeHtml(entry.details || '—') + '</td>' +
-                '<td><button type="button" class="btn btn-sm btn-outline-danger admin-delete-log-btn" data-id="' + escapeHtml(String(entry.id)) + '" title="Удалить эту запись"><i class="bi bi-trash"></i></button></td>' +
+                '<td><button type="button" class="btn btn-sm btn-outline-danger admin-delete-log-btn" data-id="' + escapeHtml(String(entry.id)) + '" title="' + escapeHtml(t('Удалить эту запись')) + '"><i class="bi bi-trash"></i></button></td>' +
                 '</tr>';
         }).join('');
     }
@@ -257,14 +276,14 @@
         if (!tbody) return;
         if (!vehicleId) {
             tbody.innerHTML = '';
-            if (emptyEl) { emptyEl.classList.remove('d-none'); emptyEl.textContent = 'Выберите ТС.'; }
+            if (emptyEl) { emptyEl.classList.remove('d-none'); setI18n(emptyEl, 'Выберите ТС.'); }
             return;
         }
         const entries = await apiGet('audit.php?vehicleId=' + encodeURIComponent(vehicleId));
         const list = Array.isArray(entries) ? entries : [];
         if (list.length === 0) {
             tbody.innerHTML = '';
-            if (emptyEl) { emptyEl.classList.remove('d-none'); emptyEl.textContent = 'Записей по этому ТС нет.'; }
+            if (emptyEl) { emptyEl.classList.remove('d-none'); setI18n(emptyEl, 'Записей по этому ТС нет.'); }
             return;
         }
         if (emptyEl) emptyEl.classList.add('d-none');
@@ -283,10 +302,10 @@
         if (!select) return;
         const vehicles = getVehicles();
         const current = select.value;
-        let options = '<option value="">Выберите ТС...</option>';
+        let options = '<option value="">' + escapeHtml(t('Выберите ТС...')) + '</option>';
         vehicles.forEach(function (v) {
             var id = v.id != null ? String(v.id) : '';
-            var name = (v.name || v.grnz || 'ТС') + (v.grnz ? ' (' + v.grnz + ')' : '');
+            var name = (v.name || v.grnz || t('ТС')) + (v.grnz ? ' (' + v.grnz + ')' : '');
             options += '<option value="' + id + '">' + escapeHtml(name) + '</option>';
         });
         select.innerHTML = options;
@@ -305,16 +324,17 @@
             head.innerHTML = '';
             body.innerHTML = '';
             wrap.classList.add('d-none');
-            if (emptyEl) { emptyEl.classList.remove('d-none'); emptyEl.textContent = 'Выберите тип отчёта.'; }
+            if (emptyEl) { emptyEl.classList.remove('d-none'); setI18n(emptyEl, 'Выберите тип отчёта.'); }
             return;
         }
-        if (titleEl) titleEl.textContent = data.title || '';
-        head.innerHTML = '<tr>' + data.headers.map(function (h) { return '<th>' + escapeHtml(h) + '</th>'; }).join('') + '</tr>';
+        lastAdminReport = data;
+        if (titleEl) titleEl.textContent = t(data.title || '');
+        head.innerHTML = '<tr>' + data.headers.map(function (h) { return '<th>' + escapeHtml(t(h)) + '</th>'; }).join('') + '</tr>';
         body.innerHTML = data.rows && data.rows.length
             ? data.rows.map(function (row) {
-                return '<tr>' + row.map(function (cell) { return '<td>' + escapeHtml(String(cell)) + '</td>'; }).join('') + '</tr>';
+                return '<tr>' + row.map(function (cell) { return '<td>' + escapeHtml(t(String(cell))) + '</td>'; }).join('') + '</tr>';
             }).join('')
-            : '<tr><td colspan="' + data.headers.length + '" class="text-center text-muted">Нет записей</td></tr>';
+            : '<tr><td colspan="' + data.headers.length + '" class="text-center text-muted">' + escapeHtml(t('Нет записей')) + '</td></tr>';
         wrap.classList.remove('d-none');
         if (emptyEl) emptyEl.classList.add('d-none');
     }
@@ -493,16 +513,16 @@
             if (n1 != null && !isNaN(n1) && c < n1) return { text: String(Math.round(n1 - c)), isDue: false };
             if (n2 != null && !isNaN(n2) && c < n2) return { text: String(Math.round(n2 - c)), isDue: true };
             if (n3 != null && !isNaN(n3) && c < n3) return { text: String(Math.round(n3 - c)), isDue: true };
-            if (n1 != null && c >= n1) return { text: 'Пора ТО!', isDue: true };
+            if (n1 != null && c >= n1) return { text: t('Пора ТО!'), isDue: true };
             return { text: '<span class="cell-empty">—</span>', isDue: false };
         }
         if (vehicles.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="19" class="text-center text-muted py-4">Нет данных. Нажмите «Добавить ТС».</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="19" class="text-center text-muted py-4">' + escapeHtml(t('Нет данных. Нажмите «Добавить ТС».')) + '</td></tr>';
             renderVehiclesCards([]);
             return;
         }
         if (filteredVehicles.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="19" class="text-center text-muted py-4">Ничего не найдено.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="19" class="text-center text-muted py-4">' + escapeHtml(t('Ничего не найдено.')) + '</td></tr>';
             renderVehiclesCards([]);
             return;
         }
@@ -526,8 +546,8 @@
                 return `
 <tr data-id="${v.id}">
     <td class="cell-name">${escapeHtml(v.name)}</td>
-    <td class="text-nowrap small">${emptyCell(v.equipmentType)}</td>
-    <td class="p-1"><input type="text" class="form-control form-control-sm application-input" value="${escapeHtml(v.application || '')}" placeholder="Не указано" data-id="${v.id}"></td>
+    <td class="text-nowrap small">${emptyCell(v.equipmentType ? t(v.equipmentType) : v.equipmentType)}</td>
+    <td class="p-1"><input type="text" class="form-control form-control-sm application-input" value="${escapeHtml(v.application || '')}" placeholder="${escapeHtml(t('Не указано'))}" data-id="${v.id}"></td>
     <td class="cell-owner">${escapeHtml(v.owner)}</td>
     <td><span class="grnz-plate">${escapeHtml(v.grnz || '')}</span></td>
     <td>${emptyCell(v.consumptionRate)}</td>
@@ -538,16 +558,16 @@
     <td class="mh-cell ${next2Class}">${mhNext2}</td>
     <td class="mh-cell ${next3Class}">${mhNext3}</td>
     <td class="mh-cell">${mhCurrent}</td>
-    <td class="mh-cell ${untilTOClass}" title="Моточасов до следующего ТО">${untilTO.text}</td>
+    <td class="mh-cell ${untilTOClass}" title="${escapeHtml(t('Моточасов до следующего ТО'))}">${untilTO.text}</td>
     <td class="${insClass}">${insuranceCell}</td>
     <td class="${techClass}">${techCell}</td>
     <td class="${taxClass}">${taxCell}</td>
     <td>${emptyCell(v.location)}</td>
     <td class="actions-cell">
         <div class="row-actions">
-            <button type="button" class="btn btn-sm btn-outline-success mh-add-btn" title="Добавить моточасы"><i class="bi bi-plus-lg"></i></button>
-            <button type="button" class="btn btn-sm btn-outline-primary edit-btn" title="Редактировать"><i class="bi bi-pencil"></i></button>
-            <button type="button" class="btn btn-sm btn-outline-danger delete-btn" title="Удалить"><i class="bi bi-trash"></i></button>
+            <button type="button" class="btn btn-sm btn-outline-success mh-add-btn" title="${escapeHtml(t('Добавить моточасы'))}"><i class="bi bi-plus-lg"></i></button>
+            <button type="button" class="btn btn-sm btn-outline-primary edit-btn" title="${escapeHtml(t('Редактировать'))}"><i class="bi bi-pencil"></i></button>
+            <button type="button" class="btn btn-sm btn-outline-danger delete-btn" title="${escapeHtml(t('Удалить'))}"><i class="bi bi-trash"></i></button>
         </div>
     </td>
 </tr>`;
@@ -561,7 +581,7 @@
         const cards = document.getElementById('vehiclesCards');
         if (!cards) return;
         if (!list || list.length === 0) {
-            cards.innerHTML = '<div class="text-center text-muted py-3">Нет данных для отображения.</div>';
+            cards.innerHTML = '<div class="text-center text-muted py-3">' + escapeHtml(t('Нет данных для отображения.')) + '</div>';
             return;
         }
         cards.innerHTML = list.map(function (v) {
@@ -575,7 +595,7 @@
                 if (n1 != null && !isNaN(n1) && c < n1) return { text: String(Math.round(n1 - c)), isDue: false };
                 if (n2 != null && !isNaN(n2) && c < n2) return { text: String(Math.round(n2 - c)), isDue: true };
                 if (n3 != null && !isNaN(n3) && c < n3) return { text: String(Math.round(n3 - c)), isDue: true };
-                if (n1 != null && c >= n1) return { text: 'Пора ТО!', isDue: true };
+                if (n1 != null && c >= n1) return { text: t('Пора ТО!'), isDue: true };
                 return { text: '—', isDue: false };
             })();
             const untilClass = untilTO.isDue ? 'text-warning fw-bold' : '';
@@ -584,18 +604,18 @@
   <div class="vehicle-card__head">
     <div>
       <h3 class="vehicle-card__title">${escapeHtml(v.name)}</h3>
-      <div class="vehicle-card__meta">${escapeHtml(v.equipmentType ? v.equipmentType + ' · ' : '')}${escapeHtml(v.owner || '—')}</div>
+      <div class="vehicle-card__meta">${escapeHtml(v.equipmentType ? t(v.equipmentType) + ' · ' : '')}${escapeHtml(v.owner || '—')}</div>
     </div>
     <span class="grnz-plate">${escapeHtml(v.grnz || '')}</span>
   </div>
   <div class="vehicle-card__grid">
-    <div><span class="vehicle-card__label">Локация</span>${escapeHtml(v.location || '—')}</div>
-    <div><span class="vehicle-card__label">Моточасы</span>${v.motorHours != null ? escapeHtml(String(v.motorHours)) : '—'}</div>
-    <div><span class="vehicle-card__label">До след. ТО</span><span class="${untilClass}">${escapeHtml(untilTO.text)}</span></div>
-    <div><span class="vehicle-card__label">Страховка</span><span class="${insClass}">${escapeHtml(formatDate(v.insuranceDeadline))}</span></div>
+    <div><span class="vehicle-card__label">${escapeHtml(t('Локация'))}</span>${escapeHtml(v.location || '—')}</div>
+    <div><span class="vehicle-card__label">${escapeHtml(t('Моточасы'))}</span>${v.motorHours != null ? escapeHtml(String(v.motorHours)) : '—'}</div>
+    <div><span class="vehicle-card__label">${escapeHtml(t('До след. ТО'))}</span><span class="${untilClass}">${escapeHtml(untilTO.text)}</span></div>
+    <div><span class="vehicle-card__label">${escapeHtml(t('Страховка'))}</span><span class="${insClass}">${escapeHtml(formatDate(v.insuranceDeadline))}</span></div>
   </div>
   <div class="vehicle-card__actions">
-    <button type="button" class="btn btn-sm btn-outline-success mh-add-btn"><i class="bi bi-plus-lg"></i> Моточас</button>
+    <button type="button" class="btn btn-sm btn-outline-success mh-add-btn"><i class="bi bi-plus-lg"></i> ${escapeHtml(t('Моточас'))}</button>
     <button type="button" class="btn btn-sm btn-outline-primary edit-btn"><i class="bi bi-pencil"></i></button>
     <button type="button" class="btn btn-sm btn-outline-danger delete-btn"><i class="bi bi-trash"></i></button>
   </div>
@@ -653,6 +673,7 @@
     // ——— Отчёты ———
     let reportsModal;
     let currentReportData = null;
+    let lastAdminReport = null;
 
     function untilNextTOValue(v) {
         const c = v.motorHours != null ? Number(v.motorHours) : null;
@@ -889,15 +910,15 @@
             bodyEl.innerHTML = '';
             wrapEl.classList.add('d-none');
             emptyEl.classList.remove('d-none');
-            emptyEl.textContent = 'Нет данных для отчёта.';
+            setI18n(emptyEl, 'Нет данных для отчёта.');
             return;
         }
-        titleEl.textContent = data.title;
-        headEl.innerHTML = '<tr>' + data.headers.map(function (h) { return '<th>' + escapeHtml(h) + '</th>'; }).join('') + '</tr>';
+        titleEl.textContent = t(data.title);
+        headEl.innerHTML = '<tr>' + data.headers.map(function (h) { return '<th>' + escapeHtml(t(h)) + '</th>'; }).join('') + '</tr>';
         bodyEl.innerHTML = data.rows.length === 0
-            ? '<tr><td colspan="' + data.headers.length + '" class="text-center text-muted">Нет записей</td></tr>'
+            ? '<tr><td colspan="' + data.headers.length + '" class="text-center text-muted">' + escapeHtml(t('Нет записей')) + '</td></tr>'
             : data.rows.map(function (row) {
-                return '<tr>' + row.map(function (cell) { return '<td>' + escapeHtml(String(cell)) + '</td>'; }).join('') + '</tr>';
+                return '<tr>' + row.map(function (cell) { return '<td>' + escapeHtml(t(String(cell))) + '</td>'; }).join('') + '</tr>';
             }).join('');
         wrapEl.classList.remove('d-none');
         emptyEl.classList.add('d-none');
@@ -905,12 +926,12 @@
 
     function openReportsModal() {
         currentReportData = null;
-        document.getElementById('reportTitle').textContent = 'Выберите тип отчёта';
+        document.getElementById('reportTitle').textContent = t('Выберите тип отчёта');
         document.getElementById('reportTableHead').innerHTML = '';
         document.getElementById('reportTableBody').innerHTML = '';
         document.getElementById('reportTableWrap').classList.remove('d-none');
         document.getElementById('reportEmpty').classList.add('d-none');
-        document.getElementById('reportEmpty').textContent = 'Нет данных для отчёта.';
+        setI18n(document.getElementById('reportEmpty'), 'Нет данных для отчёта.');
         document.getElementById('reportDownloadExcel').disabled = true;
         reportsModal.show();
     }
@@ -932,11 +953,13 @@
     function downloadReportExcel() {
         if (!currentReportData || typeof XLSX === 'undefined') return;
         const data = currentReportData;
-        const aoa = [data.headers].concat(data.rows);
+        const aoa = [data.headers.map(function (h) { return t(h); })].concat((data.rows || []).map(function (row) {
+            return row.map(function (cell) { return typeof cell === 'string' ? t(cell) : cell; });
+        }));
         const ws = XLSX.utils.aoa_to_sheet(aoa);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Отчёт');
-        const name = 'отчет_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+        XLSX.utils.book_append_sheet(wb, ws, t('Отчёт'));
+        const name = (langIsEn() ? 'report_' : 'отчет_') + new Date().toISOString().slice(0, 10) + '.xlsx';
         XLSX.writeFile(wb, name);
     }
 
@@ -965,7 +988,7 @@
         if (n1 != null && !isNaN(n1) && current < n1) return Math.round(n1 - current);
         if (n2 != null && !isNaN(n2) && current < n2) return Math.round(n2 - current);
         if (n3 != null && !isNaN(n3) && current < n3) return Math.round(n3 - current);
-        if (n1 != null && current >= n1) return 'Пора ТО!';
+        if (n1 != null && current >= n1) return t('Пора ТО!');
         return '—';
     }
 
@@ -982,14 +1005,14 @@
         if (!listEl) return;
         const list = Array.isArray(history) ? history : [];
         if (list.length === 0) {
-            listEl.innerHTML = '<span class="text-muted">Записей пока нет</span>';
+            listEl.innerHTML = '<span class="text-muted">' + escapeHtml(t('Записей пока нет')) + '</span>';
             return;
         }
         listEl.innerHTML = list.slice().reverse().map(function (h) {
             const dateStr = formatHistoryDate(h.date);
             const amount = h.amount != null ? Number(h.amount) : 0;
             const total = h.totalAfter != null ? Number(h.totalAfter) : '—';
-            return '<div class="d-flex justify-content-between py-1 border-bottom border-light"><span>' + escapeHtml(dateStr) + ' <span class="text-success">+' + amount + '</span></span><span class="text-muted">→ ' + total + ' м/ч</span></div>';
+            return '<div class="d-flex justify-content-between py-1 border-bottom border-light"><span>' + escapeHtml(dateStr) + ' <span class="text-success">+' + amount + '</span></span><span class="text-muted">→ ' + total + ' ' + escapeHtml(t('м/ч')) + '</span></div>';
         }).join('');
     }
 
@@ -1001,7 +1024,7 @@
             fullVehicle = await apiGet('vehicles.php?id=' + encodeURIComponent(vehicleId));
         } catch (_) { }
         document.getElementById('mhVehicleId').value = vehicleId;
-        document.getElementById('mhVehicleName').textContent = fullVehicle.name || fullVehicle.grnz || 'ТС';
+        document.getElementById('mhVehicleName').textContent = fullVehicle.name || fullVehicle.grnz || t('ТС');
         const current = fullVehicle.motorHours != null && fullVehicle.motorHours !== '' ? Number(fullVehicle.motorHours) : 0;
         document.getElementById('mhCurrentValue').textContent = current;
         document.getElementById('mhUntilTO').textContent = getUntilNextTOText(fullVehicle);
@@ -1037,7 +1060,6 @@
     let rentModal;
 
     function openModal(editId) {
-        const title = document.getElementById('vehicleModalTitle');
         const form = document.getElementById('vehicleForm');
         form.reset();
         document.getElementById('vehicleId').value = editId || '';
@@ -1045,7 +1067,9 @@
         if (editId) {
             const v = getVehicles().find(x => x.id === editId);
             if (v) {
-                title.innerHTML = '<i class="bi bi-pencil-square text-primary me-1"></i> Редактировать ТС';
+                var editIcon = document.getElementById('vehicleModalTitleIcon');
+                if (editIcon) editIcon.className = 'bi bi-pencil-square text-primary me-1';
+                setI18n(document.getElementById('vehicleModalTitleText'), 'Редактировать ТС');
                 document.getElementById('vName').value = v.name || '';
                 var typeEl = document.getElementById('vEquipmentType');
                 if (typeEl) {
@@ -1054,7 +1078,8 @@
                     if (typeVal && typeEl.value !== typeVal) {
                         var opt = document.createElement('option');
                         opt.value = typeVal;
-                        opt.textContent = typeVal;
+                        opt.setAttribute('data-i18n', typeVal);
+                        opt.textContent = t(typeVal);
                         typeEl.appendChild(opt);
                         typeEl.value = typeVal;
                     }
@@ -1079,7 +1104,9 @@
                 document.getElementById('vTaxDeadline').value = v.taxDeadline || '';
             }
         } else {
-            title.innerHTML = '<i class="bi bi-truck text-primary me-1"></i> Добавить транспортное средство';
+            var addIcon = document.getElementById('vehicleModalTitleIcon');
+            if (addIcon) addIcon.className = 'bi bi-truck text-primary me-1';
+            setI18n(document.getElementById('vehicleModalTitleText'), 'Добавить транспортное средство');
             var typeElNew = document.getElementById('vEquipmentType');
             if (typeElNew) typeElNew.value = '';
         }
@@ -1230,9 +1257,9 @@
         if (!select) return;
         var vehicles = getVehicles();
         var current = select.value;
-        var options = '<option value="">Выберите ТС...</option>';
+        var options = '<option value="">' + escapeHtml(t('Выберите ТС...')) + '</option>';
         vehicles.forEach(function (v) {
-            var name = v.name || v.grnz || 'Без названия';
+            var name = v.name || v.grnz || t('Без названия');
             var grnz = v.grnz ? ' (' + v.grnz + ')' : '';
             options += '<option value="' + v.id + '">' + escapeHtml(name + grnz) + '</option>';
         });
@@ -1250,15 +1277,15 @@
             return rentMatchesQuery(r, rentSearchQuery);
         });
         if (!rents.length) {
-            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-3">Записей аренды пока нет.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-3">' + escapeHtml(t('Записей аренды пока нет.')) + '</td></tr>';
             return;
         }
         if (!filteredRents.length) {
-            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-3">Ничего не найдено.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-3">' + escapeHtml(t('Ничего не найдено.')) + '</td></tr>';
             return;
         }
         tbody.innerHTML = filteredRents.map(function (r) {
-            var vehicleText = (r.vehicleName || 'ТС') + (r.vehicleGrnz ? ' (' + r.vehicleGrnz + ')' : '');
+            var vehicleText = (r.vehicleName || t('ТС')) + (r.vehicleGrnz ? ' (' + r.vehicleGrnz + ')' : '');
             var dieselCell = r.dieselCost != null ? formatMoney(r.dieselCost) : '—';
             var incomeCell = r.income != null ? formatMoney(r.income) : '—';
             var profitVal = r.profit != null ? r.profit : (r.income != null && r.total != null ? r.income - r.total : null);
@@ -1274,8 +1301,8 @@
   <td>' + incomeCell + '</td>\
   <td class="' + profitClass + '">' + profitCell + '</td>\
   <td>' + dieselCell + '</td>\
-  <td>' + escapeHtml(r.status || 'Активна') + '</td>\
-  <td><button type="button" class="btn btn-sm btn-outline-danger rent-delete-btn">Удалить</button></td>\
+  <td>' + escapeHtml(t(r.status || 'Активна')) + '</td>\
+  <td><button type="button" class="btn btn-sm btn-outline-danger rent-delete-btn">' + escapeHtml(t('Удалить')) + '</button></td>\
 </tr>';
         }).join('');
 
@@ -1335,8 +1362,7 @@
         renderRentTable();
         if (rentModal) rentModal.hide();
         resetRentForm();
-        var rentTitleEl = document.getElementById('rentModalTitle');
-        if (rentTitleEl) rentTitleEl.innerHTML = '<i class="bi bi-calendar-check text-primary"></i> Добавить аренду';
+        setI18n(document.getElementById('rentModalTitleText'), 'Добавить аренду');
     }
 
     function resetRentForm() {
@@ -1378,9 +1404,9 @@
         if (!select) return;
         var vehicles = getVehicles();
         var current = select.value;
-        var options = '<option value="">Выберите ТС (наименование и кому)...</option>';
+        var options = '<option value="">' + escapeHtml(t('Выберите ТС (наименование и кому)...')) + '</option>';
         vehicles.forEach(function (v) {
-            var name = v.name || v.grnz || 'Без названия';
+            var name = v.name || v.grnz || t('Без названия');
             var owner = v.owner ? ' — ' + v.owner : '';
             options += '<option value="' + v.id + '">' + escapeHtml(name + owner) + '</option>';
         });
@@ -1396,11 +1422,11 @@
         var spares = getSpares();
         var filtered = spares.filter(function (s) { return spareMatchesQuery(s, spareSearchQuery); });
         if (!spares.length) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">Записей запчастей пока нет.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">' + escapeHtml(t('Записей запчастей пока нет.')) + '</td></tr>';
             return;
         }
         if (!filtered.length) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">Ничего не найдено.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">' + escapeHtml(t('Ничего не найдено.')) + '</td></tr>';
             return;
         }
         tbody.innerHTML = filtered.map(function (s) {
@@ -1413,8 +1439,8 @@
                 '<td>' + amountCell + '</td>' +
                 '<td>' + formatDate(s.date) + '</td>' +
                 '<td>' +
-                '<button type="button" class="btn btn-sm btn-outline-primary spare-edit-btn" title="Редактировать"><i class="bi bi-pencil"></i></button> ' +
-                '<button type="button" class="btn btn-sm btn-outline-danger spare-delete-btn" title="Удалить"><i class="bi bi-trash"></i></button>' +
+                '<button type="button" class="btn btn-sm btn-outline-primary spare-edit-btn" title="' + escapeHtml(t('Редактировать')) + '"><i class="bi bi-pencil"></i></button> ' +
+                '<button type="button" class="btn btn-sm btn-outline-danger spare-delete-btn" title="' + escapeHtml(t('Удалить')) + '"><i class="bi bi-trash"></i></button>' +
                 '</td></tr>';
         }).join('');
 
@@ -1438,12 +1464,8 @@
         } else {
             pendingTenderCommit = null;
         }
-        var titleEl = document.getElementById('spareModalTitle');
-        if (titleEl) {
-            if (editId) titleEl.textContent = 'Редактировать запчасть';
-            else if (fromTenderItem) titleEl.textContent = 'Запчасть по позиции тендера';
-            else titleEl.textContent = 'Добавить запчасть';
-        }
+        var spareTitleKey = editId ? 'Редактировать запчасть' : (fromTenderItem ? 'Запчасть по позиции тендера' : 'Добавить запчасть');
+        setI18n(document.getElementById('spareModalTitleText'), spareTitleKey);
         document.getElementById('spareId').value = editId || '';
         document.getElementById('spareVehicleSelect').value = '';
         var spareNameEl = document.getElementById('spareName');
@@ -2239,8 +2261,7 @@
         if (startEl) startEl.value = new Date().toISOString().slice(0, 10);
         var tenantEl = document.getElementById('rentTenant');
         if (tenantEl) tenantEl.value = sessionUser && sessionUser.name ? String(sessionUser.name).trim() : '';
-        var titleEl = document.getElementById('rentModalTitle');
-        if (titleEl) titleEl.innerHTML = '<i class="bi bi-calendar-check text-primary"></i> Аренда по позиции тендера';
+        setI18n(document.getElementById('rentModalTitleText'), 'Аренда по позиции тендера');
         if (rentModal) rentModal.show();
     }
 
@@ -2274,7 +2295,7 @@
             if (emptyEl) emptyEl.classList.remove('d-none');
             if (sumEl) {
                 sumEl.classList.remove('d-none');
-                sumEl.innerHTML = 'Файл прочитан, но позиции не распознаны. Нужна строка заголовков с колонкой <strong>«Наименование»</strong> / <strong>«Техника»</strong> (или таблица с первой строки листа без «красивых» заголовков — тогда берётся самая длинная ячейка в строке).';
+                sumEl.innerHTML = t('Файл прочитан, но позиции не распознаны. Нужна строка заголовков с колонкой <strong>«Наименование»</strong> / <strong>«Техника»</strong> (или таблица с первой строки листа без «красивых» заголовков — тогда берётся самая длинная ячейка в строке).');
             }
             return;
         }
@@ -2291,26 +2312,34 @@
             var decLine = '';
             if (missing > 0) {
                 var committedN = cc.spare + cc.rent;
-                decLine = ' Внесено в учёт (запчасти / аренда): <strong class="text-success">' + cc.spare + '</strong> / <strong class="text-info">' + cc.rent + '</strong>. Без записи: <strong class="text-muted">' + (missing - committedN) + '</strong>.';
+                decLine = ' ' + t('Внесено в учёт (запчасти / аренда): {spares} / {rents}. Без записи: {open}.', {
+                    spares: '<strong class="text-success">' + cc.spare + '</strong>',
+                    rents: '<strong class="text-info">' + cc.rent + '</strong>',
+                    open: '<strong class="text-muted">' + (missing - committedN) + '</strong>'
+                });
             }
             var filterNote = tenderOnlyEquipment
-                ? ' Показано техники: <strong>' + display.length + '</strong> из ' + results.length + '.'
-                : ' Строк в смете: <strong>' + results.length + '</strong>.';
-            sumEl.innerHTML = filterNote + ' В парке: <strong class="text-success">' + inPark + '</strong>. Не в парке: <strong class="text-danger">' + missing + '</strong>.' + decLine;
+                ? t('Показано техники: {shown} из {total}.', { shown: '<strong>' + display.length + '</strong>', total: results.length })
+                : t('Строк в смете: {n}.', { n: '<strong>' + results.length + '</strong>' });
+            sumEl.innerHTML = filterNote + ' ' + t('В парке: {inPark}. Не в парке: {missing}.{decisions}', {
+                inPark: '<strong class="text-success">' + inPark + '</strong>',
+                missing: '<strong class="text-danger">' + missing + '</strong>',
+                decisions: decLine
+            });
         }
         if (!display.length) {
             tbody.innerHTML = '';
             if (emptyEl) {
                 emptyEl.classList.remove('d-none');
-                emptyEl.textContent = tenderOnlyEquipment
+                setI18n(emptyEl, tenderOnlyEquipment
                     ? 'Техника в смете не найдена. Снимите «Только техника», чтобы увидеть все строки.'
-                    : 'Нет строк для сравнения. Проверьте, что на листе есть колонка с наименованием (например «Наименование», «Техника», «Ресурс»).';
+                    : 'Нет строк для сравнения. Проверьте, что на листе есть колонка с наименованием (например «Наименование», «Техника», «Ресурс»).');
             }
             return;
         }
         if (emptyEl) {
             emptyEl.classList.add('d-none');
-            emptyEl.textContent = 'Нет строк для сравнения. Проверьте, что на листе есть колонка с наименованием (например «Наименование», «Техника», «Ресурс»).';
+            setI18n(emptyEl, 'Нет строк для сравнения. Проверьте, что на листе есть колонка с наименованием (например «Наименование», «Техника», «Ресурс»).');
         }
         function tenderTableCell(v) {
             if (v == null || String(v).trim() === '') return '—';
@@ -2321,7 +2350,7 @@
             const npp = (row.rowNum !== undefined && String(row.rowNum).trim() !== '') ? tenderTableCell(row.rowNum) : String(r.index);
             const sheetNote = multiSheet && row.sheet ? ' <span class="text-muted small">(' + escapeHtml(row.sheet) + ')</span>' : '';
             const nameHtml = tenderTableCell(row.name) + sheetNote;
-            const park = r.inPark ? '<span class="badge bg-success">Да</span>' : '<span class="badge bg-danger">Нет</span>';
+            const park = r.inPark ? '<span class="badge bg-success">' + escapeHtml(t('Да')) + '</span>' : '<span class="badge bg-danger">' + escapeHtml(t('Нет')) + '</span>';
             const matchV = r.vehicle ? escapeHtml(r.vehicle.name + (r.vehicle.owner ? ' — ' + r.vehicle.owner : '')) : '—';
             const rowKey = tenderRowDecisionKey(r);
             const committed = committedMap[rowKey];
@@ -2329,18 +2358,18 @@
             if (!r.inPark) {
                 if (committed && committed.type === 'spare') {
                     actionCell = '<div class="small tender-committed-cell">' +
-                        '<span class="text-success"><i class="bi bi-check-circle"></i> Запчасть №' + escapeHtml(committed.id) + '</span> ' +
-                        '<button type="button" class="btn btn-link btn-sm p-0 tender-open-spares" data-entity-id="' + escapeHtml(committed.id) + '">Открыть</button>' +
-                        '<div class="mt-1"><button type="button" class="btn btn-outline-primary btn-sm tender-dec-btn" data-tender-index="' + r.index + '" data-decision="buy" title="Добавить ещё запись">Ещё закупка</button></div></div>';
+                        '<span class="text-success"><i class="bi bi-check-circle"></i> ' + escapeHtml(t('Запчасть №{id}', { id: committed.id })) + '</span> ' +
+                        '<button type="button" class="btn btn-link btn-sm p-0 tender-open-spares" data-entity-id="' + escapeHtml(committed.id) + '">' + escapeHtml(t('Открыть')) + '</button>' +
+                        '<div class="mt-1"><button type="button" class="btn btn-outline-primary btn-sm tender-dec-btn" data-tender-index="' + r.index + '" data-decision="buy" title="' + escapeHtml(t('Добавить ещё запись')) + '">' + escapeHtml(t('Ещё закупка')) + '</button></div></div>';
                 } else if (committed && committed.type === 'rent') {
                     actionCell = '<div class="small tender-committed-cell">' +
-                        '<span class="text-info"><i class="bi bi-check-circle"></i> Аренда №' + escapeHtml(committed.id) + '</span> ' +
-                        '<button type="button" class="btn btn-link btn-sm p-0 tender-open-rents" data-entity-id="' + escapeHtml(committed.id) + '">Открыть</button>' +
-                        '<div class="mt-1"><button type="button" class="btn btn-outline-info btn-sm tender-dec-btn" data-tender-index="' + r.index + '" data-decision="rent" title="Добавить ещё аренду">Ещё аренда</button></div></div>';
+                        '<span class="text-info"><i class="bi bi-check-circle"></i> ' + escapeHtml(t('Аренда №{id}', { id: committed.id })) + '</span> ' +
+                        '<button type="button" class="btn btn-link btn-sm p-0 tender-open-rents" data-entity-id="' + escapeHtml(committed.id) + '">' + escapeHtml(t('Открыть')) + '</button>' +
+                        '<div class="mt-1"><button type="button" class="btn btn-outline-info btn-sm tender-dec-btn" data-tender-index="' + r.index + '" data-decision="rent" title="' + escapeHtml(t('Добавить ещё аренду')) + '">' + escapeHtml(t('Ещё аренда')) + '</button></div></div>';
                 } else {
                     actionCell = '<div class="d-flex flex-wrap gap-1 tender-decision-group" role="group">' +
-                        '<button type="button" class="btn btn-outline-primary btn-sm tender-dec-btn" data-tender-index="' + r.index + '" data-decision="buy" title="Внести закупку в раздел «Запчасти»">Купить</button>' +
-                        '<button type="button" class="btn btn-outline-info btn-sm tender-dec-btn" data-tender-index="' + r.index + '" data-decision="rent" title="Внести в раздел «Аренда»">Арендовать</button>' +
+                        '<button type="button" class="btn btn-outline-primary btn-sm tender-dec-btn" data-tender-index="' + r.index + '" data-decision="buy" title="' + escapeHtml(t('Внести закупку в раздел «Запчасти»')) + '">' + escapeHtml(t('Купить')) + '</button>' +
+                        '<button type="button" class="btn btn-outline-info btn-sm tender-dec-btn" data-tender-index="' + r.index + '" data-decision="rent" title="' + escapeHtml(t('Внести в раздел «Аренда»')) + '">' + escapeHtml(t('Арендовать')) + '</button>' +
                         '</div>';
                 }
             }
@@ -2366,7 +2395,7 @@
         var sumEl = document.getElementById('tenderSummary');
         if (sumEl) {
             sumEl.classList.remove('d-none');
-            sumEl.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Чтение файла и сверка с парком…';
+            sumEl.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>' + escapeHtml(t('Чтение файла и сверка с парком…'));
         }
         try {
             await loadVehicles(vehicleSearchQuery);
@@ -2451,7 +2480,7 @@
                 var sumEl = document.getElementById('tenderSummary');
                 if (sumEl) {
                     sumEl.classList.remove('d-none');
-                    sumEl.innerHTML = '<span class="text-danger">' + escapeHtml(tenderErrText(err)) + '</span>';
+                    sumEl.innerHTML = '<span class="text-danger">' + escapeHtml(t(tenderErrText(err))) + '</span>';
                 }
                 alert('Ошибка: ' + tenderErrText(err));
             });
@@ -2505,18 +2534,18 @@
                     return;
                 }
                 const keys = Object.keys(rows[0]);
-                const nameAliases = ['Наименование', 'наименование'];
-                const equipmentTypeAliases = ['Вид техники', 'вид техники', 'Тип техники', 'тип техники'];
-                const ownerAliases = ['Собственник', 'собственник'];
-                const grnzAliases = ['ГРНЗ', 'грнз'];
-                const consumptionAliases = ['Норма расхода', 'норма расхода'];
-                const dieselFuelAliases = ['Диз топливу', 'диз топливу', 'Диз', 'диз'];
-                const yearAliases = ['Год выпуска', 'Год', 'год выпуска', 'год'];
-                const insuranceAliases = ['Страховка', 'страховка', 'Дата оформления страховки', 'Дедлайн страховки'];
-                const techAliases = ['Дата прохождения тех. осмотра', 'Тех осмотр', 'тех осмотр', 'Дедлайн тех осмотра'];
-                const taxAliases = ['Дата уплаты налога', 'налог', 'Налог', 'Дедлайн налога'];
-                const locationAliases = ['Находится', 'находится'];
-                const applicationAliases = ['Применение', 'применение'];
+                const nameAliases = ['Наименование', 'наименование', 'Name'];
+                const equipmentTypeAliases = ['Вид техники', 'вид техники', 'Тип техники', 'тип техники', 'Equipment type'];
+                const ownerAliases = ['Собственник', 'собственник', 'Owner'];
+                const grnzAliases = ['ГРНЗ', 'грнз', 'Plate'];
+                const consumptionAliases = ['Норма расхода', 'норма расхода', 'Consumption rate'];
+                const dieselFuelAliases = ['Диз топливу', 'диз топливу', 'Диз', 'диз', 'Diesel'];
+                const yearAliases = ['Год выпуска', 'Год', 'год выпуска', 'год', 'Year of manufacture', 'Year'];
+                const insuranceAliases = ['Страховка', 'страховка', 'Дата оформления страховки', 'Дедлайн страховки', 'Insurance'];
+                const techAliases = ['Дата прохождения тех. осмотра', 'Тех осмотр', 'тех осмотр', 'Дедлайн тех осмотра', 'Inspection date'];
+                const taxAliases = ['Дата уплаты налога', 'налог', 'Налог', 'Дедлайн налога', 'Tax payment date'];
+                const locationAliases = ['Находится', 'находится', 'Location'];
+                const applicationAliases = ['Применение', 'применение', 'Use'];
 
                 const imported = [];
 
@@ -2561,22 +2590,24 @@
                     }
 
                     const mhParse = (val) => { const n = val !== null ? parseFloat(String(val).replace(',', '.')) : null; return n != null && !isNaN(n) ? n : null; };
-                    const motorHoursAliases = ['Текущий', 'Моточас текущий', 'моточас', 'Моточасы'];
-                    const motorHoursBaseAliases = ['Моточас', 'моточа', 'Моточас база'];
+                    const motorHoursAliases = ['Текущий', 'Моточас текущий', 'моточас', 'Моточасы', 'Current'];
+                    const motorHoursBaseAliases = ['Моточас', 'моточа', 'Моточас база', 'Hours'];
                     const motorHoursNextAliases = ['След. ТО 1', 'След. ТО 2', 'След. ТО 3', 'след. т'];
 
                     const v = {
                         name: name || '',
-                        equipmentType: getCell(row, keys, equipmentTypeAliases) || '',
+                        equipmentType: (window.AutoparkI18n && window.AutoparkI18n.canonicalEquipmentType)
+                            ? window.AutoparkI18n.canonicalEquipmentType(getCell(row, keys, equipmentTypeAliases) || '')
+                            : (getCell(row, keys, equipmentTypeAliases) || ''),
                         owner: owner || '',
                         grnz: getCell(row, keys, grnzAliases) || null,
                         consumptionRate: getCell(row, keys, consumptionAliases) || null,
                         dieselFuel: getCell(row, keys, dieselFuelAliases) || null,
                         year: getCell(row, keys, yearAliases) || null,
                         motorHoursBase: mhParse(getCell(row, keys, motorHoursBaseAliases)),
-                        motorHoursNext1: mhParse(getCell(row, keys, ['След. ТО 1', 'след. т 1'])),
-                        motorHoursNext2: mhParse(getCell(row, keys, ['След. ТО 2', 'след. т 2'])),
-                        motorHoursNext3: mhParse(getCell(row, keys, ['След. ТО 3', 'след. т 3'])),
+                        motorHoursNext1: mhParse(getCell(row, keys, ['След. ТО 1', 'след. т 1', 'Next service 1'])),
+                        motorHoursNext2: mhParse(getCell(row, keys, ['След. ТО 2', 'след. т 2', 'Next service 2'])),
+                        motorHoursNext3: mhParse(getCell(row, keys, ['След. ТО 3', 'след. т 3', 'Next service 3'])),
                         motorHours: mhParse(getCell(row, keys, motorHoursAliases)),
                         location: getCell(row, keys, locationAliases) || null,
                         application: getCell(row, keys, applicationAliases) || null,
@@ -2613,7 +2644,25 @@
             alert('Библиотека Excel не загружена.');
             return;
         }
-        var headers = [
+        var headers = langIsEn() ? [
+            'Name',
+            'Equipment type',
+            'Owner',
+            'Plate',
+            'Consumption rate',
+            'Diesel',
+            'Year of manufacture',
+            'Hours',
+            'Next service 1',
+            'Next service 2',
+            'Next service 3',
+            'Current',
+            'Insurance',
+            'Inspection date',
+            'Tax payment date',
+            'Location',
+            'Use'
+        ] : [
             'Наименование',
             'Вид техники',
             'Собственник',
@@ -2634,7 +2683,7 @@
         ];
         var exampleRow = [
             'Колесный погрузчик LW550KZ / 3 куб / Жез',
-            'Погрузчик',
+            langIsEn() ? 'Loader' : 'Погрузчик',
             'ТОО "Райс KZ"',
             'AVD320M',
             '5-6 л/ч',
@@ -2649,13 +2698,13 @@
             '05.05.2025-05.05.2026',
             '05.05.2025-05.05.2026',
             'Жез',
-            'погрузка, транспортировка'
+            langIsEn() ? 'loading, hauling' : 'погрузка, транспортировка'
         ];
         var aoa = [headers, exampleRow];
         var ws = XLSX.utils.aoa_to_sheet(aoa);
         var wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Автопарк');
-        XLSX.writeFile(wb, 'шаблон_автопарк.xlsx');
+        XLSX.utils.book_append_sheet(wb, ws, langIsEn() ? 'Fleet' : 'Автопарк');
+        XLSX.writeFile(wb, langIsEn() ? 'fleet_template.xlsx' : 'шаблон_автопарк.xlsx');
     }
 
     async function showAdminPanelContent() {
@@ -2730,11 +2779,11 @@
                 var password = passEl ? passEl.value : '';
                 var name = (nameEl && nameEl.value) ? nameEl.value.trim() : '';
                 if (!login || !password) {
-                    if (errEl) { errEl.textContent = 'Укажите логин и пароль.'; errEl.classList.remove('d-none'); }
+                    if (errEl) { errEl.textContent = t('Укажите логин и пароль.'); errEl.classList.remove('d-none'); }
                     return;
                 }
                 apiPost('users.php', { action: 'create', login: login, password: password, name: name, is_admin: false }).then(function (data) {
-                    if (okEl) { okEl.textContent = 'Менеджер «' + escapeHtml(login) + '» добавлен.'; okEl.classList.remove('d-none'); }
+                    if (okEl) { okEl.textContent = t('Менеджер «{login}» добавлен.', { login: login }); okEl.classList.remove('d-none'); }
                     if (loginEl) loginEl.value = '';
                     if (passEl) passEl.value = '';
                     if (nameEl) nameEl.value = '';
@@ -2743,14 +2792,14 @@
                         var tbody = document.getElementById('adminUsersBody');
                         var emptyEl = document.getElementById('adminUsersEmpty');
                         if (tbody) {
-                            var tr = '<tr><td>' + escapeHtml(added.login) + '</td><td>' + escapeHtml(added.name || '—') + '</td><td>Менеджер</td><td>—</td></tr>';
+                            var tr = '<tr><td>' + escapeHtml(added.login) + '</td><td>' + escapeHtml(added.name || '—') + '</td><td>' + escapeHtml(t('Менеджер')) + '</td><td>—</td></tr>';
                             tbody.insertAdjacentHTML('beforeend', tr);
                         }
                         if (emptyEl) emptyEl.classList.add('d-none');
                     }
                     loadAdminUsers();
                 }).catch(function (err) {
-                    if (errEl) { errEl.textContent = err.message || 'Ошибка добавления.'; errEl.classList.remove('d-none'); }
+                    if (errEl) { errEl.textContent = t(err.message || 'Ошибка добавления.'); errEl.classList.remove('d-none'); }
                 });
             };
         }
@@ -2764,13 +2813,13 @@
             var data = await apiGet('users.php');
             var users = (data && data.users) ? data.users : [];
             tbody.innerHTML = users.map(function (u) {
-                var role = u.is_admin ? 'Администратор' : 'Менеджер';
+                var role = u.is_admin ? t('Администратор') : t('Менеджер');
                 var created = (u.created_at && u.created_at.replace) ? u.created_at.replace('T', ' ').substring(0, 16) : '—';
                 return '<tr><td>' + escapeHtml(u.login) + '</td><td>' + escapeHtml(u.name || '—') + '</td><td>' + escapeHtml(role) + '</td><td>' + escapeHtml(created) + '</td></tr>';
             }).join('');
             if (emptyEl) emptyEl.classList.toggle('d-none', users.length > 0);
         } catch (e) {
-            if (emptyEl) { emptyEl.textContent = 'Не удалось загрузить список.'; emptyEl.classList.remove('d-none'); }
+            if (emptyEl) { setI18n(emptyEl, 'Не удалось загрузить список.'); emptyEl.classList.remove('d-none'); }
         }
     }
 
@@ -2808,13 +2857,13 @@
                         });
                     } else {
                         if (errEl) {
-                            errEl.textContent = user ? 'Доступ только для администратора.' : 'Неверный логин или пароль.';
+                            errEl.textContent = user ? t('Доступ только для администратора.') : t('Неверный логин или пароль.');
                             errEl.classList.remove('d-none');
                         }
                     }
                 }).catch(function (err) {
                     if (errEl) {
-                        errEl.textContent = err.message || 'Неверный логин или пароль.';
+                        errEl.textContent = t(err.message || 'Неверный логин или пароль.');
                         errEl.classList.remove('d-none');
                     }
                 });
@@ -2857,7 +2906,7 @@
                 }
                 showApp(user);
             }).catch(function (err) {
-                errEl.textContent = err.message || 'Неверный логин или пароль.';
+                errEl.textContent = t(err.message || 'Неверный логин или пароль.');
                 errEl.classList.remove('d-none');
             });
         });
@@ -2994,8 +3043,7 @@
         if (addRentBtn) {
             addRentBtn.addEventListener('click', function () {
                 pendingTenderCommit = null;
-                var rTitle = document.getElementById('rentModalTitle');
-                if (rTitle) rTitle.innerHTML = '<i class="bi bi-calendar-check text-primary"></i> Добавить аренду';
+                setI18n(document.getElementById('rentModalTitleText'), 'Добавить аренду');
                 resetRentForm();
                 populateRentVehicleSelect();
                 recalcRentTotal();
@@ -3029,6 +3077,28 @@
             });
         }
 
+        window.autoparkRefreshI18n = function () {
+            var app = document.getElementById('appScreen');
+            if (app && !app.classList.contains('d-none')) {
+                if (document.getElementById('vehiclesTableBody')) renderTable();
+                if (document.getElementById('rentTableBody')) renderRentTable();
+                if (document.getElementById('spareTableBody')) renderSpareTable();
+                if (document.getElementById('rentVehicleSelect')) populateRentVehicleSelect();
+                if (document.getElementById('spareVehicleSelect')) populateSpareVehicleSelect();
+                if (lastTenderResults && lastTenderResults.length) {
+                    renderTenderCompareResults(lastTenderResults, lastTenderMultiSheet);
+                }
+                if (currentReportData) renderReportTable(currentReportData);
+            }
+            var admin = document.getElementById('adminPanelScreen');
+            if (admin && !admin.classList.contains('d-none')) {
+                renderAdminGeneralJournal();
+                populateAdminBoardVehicleSelect();
+                renderAdminBoardJournal();
+                if (lastAdminReport) renderAdminReport(lastAdminReport);
+                loadAdminUsers();
+            }
+        };
     });
 })();
 

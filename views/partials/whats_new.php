@@ -13,20 +13,20 @@ $wnEntries = isset($whatsNew['entries']) && is_array($whatsNew['entries']) ? $wh
                 <div class="modal-header">
                     <div>
                         <h5 class="modal-title" id="whatsNewModalTitle">
-                            <i class="bi bi-stars text-primary me-1"></i> Что нового
+                            <i class="bi bi-stars text-primary me-1"></i> <span data-i18n="Что нового">Что нового</span>
                         </h5>
                         <p class="modal-subtitle mb-0">
-                            Обновления после деплоя
+                            <span data-i18n="Обновления после деплоя">Обновления после деплоя</span>
                             <?php if ($wnVersion !== ''): ?>
-                                <span class="whats-new-version" title="Версия (git HEAD)">· <?= htmlspecialchars($wnVersion, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></span>
+                                <span class="whats-new-version" data-i18n-title="Версия (git HEAD)" title="Версия (git HEAD)">· <?= htmlspecialchars($wnVersion, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></span>
                             <?php endif; ?>
                         </p>
                     </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" data-i18n-aria="Закрыть" aria-label="Закрыть"></button>
                 </div>
                 <div class="modal-body">
                     <?php if ($wnEntries === []): ?>
-                        <p class="text-muted mb-0">Обновление установлено.</p>
+                        <p class="text-muted mb-0" data-i18n="Обновление установлено.">Обновление установлено.</p>
                     <?php else: ?>
                         <ul class="whats-new-list list-unstyled mb-0" id="whatsNewList">
                             <?php foreach ($wnEntries as $entry):
@@ -48,7 +48,7 @@ $wnEntries = isset($whatsNew['entries']) && is_array($whatsNew['entries']) ? $wh
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-primary" id="whatsNewOkBtn" data-bs-dismiss="modal">
-                        <i class="bi bi-check-lg me-1"></i> Понятно
+                        <i class="bi bi-check-lg me-1"></i> <span data-i18n="Понятно">Понятно</span>
                     </button>
                 </div>
             </div>
