@@ -12,6 +12,8 @@
     const WHATS_NEW_STORAGE = 'aigerim_whats_new_seen';
     /** @type {{ rowKey: string, type: 'spare'|'rent' }|null} */
     let pendingTenderCommit = null;
+    /** Наименование из сметы: в аренде показывать только ТС того же вида. Пусто — весь парк. */
+    let rentVehicleFilterName = '';
     let whatsNewModal = null;
     let lastTenderResults = null;
     let lastTenderMultiSheet = false;
@@ -1255,17 +1257,41 @@
     function populateRentVehicleSelect() {
         var select = document.getElementById('rentVehicleSelect');
         if (!select) return;
-        var vehicles = getVehicles();
+        var hint = document.getElementById('rentVehicleHint');
+        var all = getVehicles();
+        var vehicles = all;
+        var filtered = !!rentVehicleFilterName;
+        if (filtered) {
+            vehicles = vehiclesForTenderRent(rentVehicleFilterName, all);
+        }
         var current = select.value;
-        var options = '<option value="">' + escapeHtml(t('Выберите ТС...')) + '</option>';
+        var options = '<option value="">' + escapeHtml(t(filtered && !vehicles.length ? 'В парке нет техники этого вида' : 'Выберите ТС...')) + '</option>';
         vehicles.forEach(function (v) {
             var name = v.name || v.grnz || t('Без названия');
             var grnz = v.grnz ? ' (' + v.grnz + ')' : '';
-            options += '<option value="' + v.id + '">' + escapeHtml(name + grnz) + '</option>';
+            var typeLabel = v.equipmentType ? ' — ' + (t(v.equipmentType) || v.equipmentType) : '';
+            options += '<option value="' + v.id + '">' + escapeHtml(name + grnz + typeLabel) + '</option>';
         });
         select.innerHTML = options;
-        if (current && vehicles.some(function (v) { return v.id === current; })) {
+        if (current && vehicles.some(function (v) { return String(v.id) === String(current); })) {
             select.value = current;
+        } else if (vehicles.length === 1) {
+            select.value = String(vehicles[0].id);
+        }
+        if (hint) {
+            if (!filtered) {
+                hint.classList.add('d-none');
+                hint.textContent = '';
+            } else if (!vehicles.length) {
+                hint.classList.remove('d-none');
+                hint.textContent = t('В парке нет техники этого вида. Другие ТС для аренды не показываются.');
+            } else {
+                hint.classList.remove('d-none');
+                var typeLabel = equipmentTypeLabelFromText(rentVehicleFilterName);
+                hint.textContent = typeLabel
+                    ? t('Вид техники') + ': ' + (t(typeLabel) || typeLabel) + '. ' + t('Показана техника этого вида из парка.')
+                    : t('Показана техника этого вида из парка.');
+            }
         }
     }
 
@@ -1639,6 +1665,109 @@
         if (common === 1 && wordsB.length === 1) return true;
         if (common === 1 && wordsA.length === 1 && wordsB.length <= 3) return true;
         return false;
+    }
+
+    /** Вид техники в тексте сметы или карточки ТС. Совпадение по виду, а не по всему парку. */
+    var EQUIPMENT_KIND_RULES = [
+        { id: 'lowboy', re: /трал|низкорам/ },
+        { id: 'fuel', re: /бензовоз|топливозаправ/ },
+        { id: 'mixer-truck', re: /автобетоносмесител/ },
+        { id: 'cement-mixer', re: /бетономешал/ },
+        { id: 'mixer', re: /бетоносмесител|бетономешал|бетоносмес/ },
+        { id: 'tractor-unit', re: /седельн|тягач/ },
+        { id: 'diesel-engine', re: /дизельн\S* двигател/ },
+        { id: 'autograder', re: /автогрейдер/ },
+        { id: 'grader', re: /грейдер/ },
+        { id: 'paver', re: /асфальтоуклад/ },
+        { id: 'gazelle', re: /газел/ },
+        { id: 'bitumen', re: /гудронатор|битумораспредел/ },
+        { id: 'miller', re: /(^| )фрез/ },
+        { id: 'combine', re: /комбайн|зерноубороч/ },
+        { id: 'excavator', re: /экскаватор/ },
+        { id: 'bulldozer', re: /бульдозер/ },
+        { id: 'loader', re: /погрузчик/ },
+        { id: 'dump', re: /самосвал/ },
+        { id: 'truck-crane', re: /автокран/ },
+        { id: 'crane', re: /(^| )кран/ },
+        { id: 'tractor', re: /трактор/ },
+        { id: 'roller', re: /каток|катк/ },
+        { id: 'car', re: /автомобил/ },
+        { id: 'truck', re: /грузовик/ },
+        { id: 'bus', re: /автобус/ },
+        { id: 'manipulator', re: /манипулятор/ },
+        { id: 'semitrailer', re: /полуприцеп/ },
+        { id: 'trailer', re: /(^| )прицеп/ },
+        { id: 'compressor', re: /компрессор/ },
+        { id: 'generator', re: /генератор/ }
+    ];
+
+    var EQUIPMENT_KIND_LABELS = {
+        lowboy: 'Полуприцеп-трал',
+        fuel: 'Бензовоз',
+        'mixer-truck': 'Автобетоносмеситель',
+        'cement-mixer': 'Бетономешалка',
+        mixer: 'Бетоносмеситель',
+        'tractor-unit': 'Седельный тягач',
+        'diesel-engine': 'Дизельный двигатель',
+        autograder: 'Автогрейдер',
+        grader: 'Грейдер',
+        paver: 'Асфальтоукладчик',
+        gazelle: 'ГАЗель',
+        bitumen: 'Автогудронатор (битумораспределитель)',
+        miller: 'Дорожная фреза',
+        combine: 'Зерноуборочный комбайн',
+        excavator: 'Экскаватор',
+        bulldozer: 'Бульдозер',
+        loader: 'Погрузчик',
+        dump: 'Самосвал',
+        'truck-crane': 'Автокран',
+        crane: 'Кран',
+        tractor: 'Трактор',
+        roller: 'Каток',
+        car: 'Автомобиль',
+        truck: 'Грузовик',
+        bus: 'Автобус',
+        manipulator: 'Манипулятор',
+        semitrailer: 'Полуприцеп',
+        trailer: 'Прицеп',
+        compressor: 'Компрессор',
+        generator: 'Генератор'
+    };
+
+    function equipmentTypeLabelFromText(text) {
+        var ids = equipmentKindsInText(text);
+        if (!ids.length) return '';
+        return EQUIPMENT_KIND_LABELS[ids[0]] || '';
+    }
+
+    function equipmentKindsInText(text) {
+        var n = normalizeTenderMatchString(text);
+        if (!n) return [];
+        var ids = [];
+        for (var i = 0; i < EQUIPMENT_KIND_RULES.length; i++) {
+            if (EQUIPMENT_KIND_RULES[i].re.test(n)) ids.push(EQUIPMENT_KIND_RULES[i].id);
+        }
+        return ids;
+    }
+
+    function vehicleMatchesEquipmentKinds(vehicle, kinds) {
+        if (!kinds || !kinds.length || !vehicle) return false;
+        var blob = [vehicle.equipmentType, vehicle.name].filter(Boolean).join(' ');
+        var vk = equipmentKindsInText(blob);
+        for (var i = 0; i < kinds.length; i++) {
+            if (vk.indexOf(kinds[i]) !== -1) return true;
+        }
+        return false;
+    }
+
+    /** ТС из парка того же вида, что строка сметы. Если вида нет — пустой список. */
+    function vehiclesForTenderRent(tenderName, vehicles) {
+        var list = Array.isArray(vehicles) ? vehicles : [];
+        var kinds = equipmentKindsInText(tenderName);
+        if (kinds.length) {
+            return list.filter(function (v) { return vehicleMatchesEquipmentKinds(v, kinds); });
+        }
+        return list.filter(function (v) { return tenderNameMatchesVehicle(tenderName, v); });
     }
 
     function findVehicleForTenderRow(tenderName, tenderGrnz, vehicles) {
@@ -2250,6 +2379,7 @@
         var item = findTenderResultByIndex(idx);
         if (!item || item.inPark) return;
         pendingTenderCommit = { rowKey: tenderRowDecisionKey(item), type: 'rent' };
+        rentVehicleFilterName = String(item.row && item.row.name ? item.row.name : '');
         resetRentForm();
         populateRentVehicleSelect();
         var row = item.row;
@@ -2351,7 +2481,21 @@
             const sheetNote = multiSheet && row.sheet ? ' <span class="text-muted small">(' + escapeHtml(row.sheet) + ')</span>' : '';
             const nameHtml = tenderTableCell(row.name) + sheetNote;
             const park = r.inPark ? '<span class="badge bg-success">' + escapeHtml(t('Да')) + '</span>' : '<span class="badge bg-danger">' + escapeHtml(t('Нет')) + '</span>';
-            const matchV = r.vehicle ? escapeHtml(r.vehicle.name + (r.vehicle.owner ? ' — ' + r.vehicle.owner : '')) : '—';
+            const kindMatches = r.inPark ? [] : vehiclesForTenderRent(row.name, getVehicles());
+            var typeShown = '';
+            if (r.vehicle && r.vehicle.equipmentType) typeShown = r.vehicle.equipmentType;
+            else if (kindMatches.length === 1 && kindMatches[0].equipmentType) typeShown = kindMatches[0].equipmentType;
+            else typeShown = equipmentTypeLabelFromText(row.name);
+            const typeCell = typeShown ? escapeHtml(t(typeShown) || typeShown) : '—';
+            const matchV = r.vehicle
+                ? escapeHtml(r.vehicle.name + (r.vehicle.owner ? ' — ' + r.vehicle.owner : ''))
+                : (kindMatches.length
+                    ? kindMatches.map(function (v) {
+                        var label = v.name || v.grnz || t('Без названия');
+                        if (v.equipmentType) label += ' (' + (t(v.equipmentType) || v.equipmentType) + ')';
+                        return escapeHtml(label);
+                    }).join('<br>')
+                    : '—');
             const rowKey = tenderRowDecisionKey(r);
             const committed = committedMap[rowKey];
             var actionCell = '<span class="text-muted small">—</span>';
@@ -2367,9 +2511,13 @@
                         '<button type="button" class="btn btn-link btn-sm p-0 tender-open-rents" data-entity-id="' + escapeHtml(committed.id) + '">' + escapeHtml(t('Открыть')) + '</button>' +
                         '<div class="mt-1"><button type="button" class="btn btn-outline-info btn-sm tender-dec-btn" data-tender-index="' + r.index + '" data-decision="rent" title="' + escapeHtml(t('Добавить ещё аренду')) + '">' + escapeHtml(t('Ещё аренда')) + '</button></div></div>';
                 } else {
+                    var rentBtn = '';
+                    if (kindMatches.length) {
+                        rentBtn = '<button type="button" class="btn btn-outline-info btn-sm tender-dec-btn" data-tender-index="' + r.index + '" data-decision="rent" title="' + escapeHtml(t('Внести в раздел «Аренда»')) + '">' + escapeHtml(t('Арендовать')) + '</button>';
+                    }
                     actionCell = '<div class="d-flex flex-wrap gap-1 tender-decision-group" role="group">' +
                         '<button type="button" class="btn btn-outline-primary btn-sm tender-dec-btn" data-tender-index="' + r.index + '" data-decision="buy" title="' + escapeHtml(t('Внести закупку в раздел «Запчасти»')) + '">' + escapeHtml(t('Купить')) + '</button>' +
-                        '<button type="button" class="btn btn-outline-info btn-sm tender-dec-btn" data-tender-index="' + r.index + '" data-decision="rent" title="' + escapeHtml(t('Внести в раздел «Аренда»')) + '">' + escapeHtml(t('Арендовать')) + '</button>' +
+                        rentBtn +
                         '</div>';
                 }
             }
@@ -2377,6 +2525,7 @@
                 '<td class="text-center text-nowrap">' + npp + '</td>' +
                 '<td class="text-nowrap small">' + tenderTableCell(row.code) + '</td>' +
                 '<td class="tender-col-name small">' + nameHtml + '</td>' +
+                '<td class="text-nowrap small">' + typeCell + '</td>' +
                 '<td class="text-nowrap small">' + tenderTableCell(row.unit) + '</td>' +
                 '<td class="text-end text-nowrap small">' + tenderTableCell(row.quantity) + '</td>' +
                 '<td class="text-end text-nowrap small">' + tenderTableCell(row.priceUnit) + '</td>' +
@@ -3043,6 +3192,7 @@
         if (addRentBtn) {
             addRentBtn.addEventListener('click', function () {
                 pendingTenderCommit = null;
+                rentVehicleFilterName = '';
                 setI18n(document.getElementById('rentModalTitleText'), 'Добавить аренду');
                 resetRentForm();
                 populateRentVehicleSelect();
@@ -3074,6 +3224,7 @@
                 if (pendingTenderCommit && pendingTenderCommit.type === 'rent') {
                     pendingTenderCommit = null;
                 }
+                rentVehicleFilterName = '';
             });
         }
 

@@ -297,6 +297,7 @@
                                             <th scope="col" class="text-center text-nowrap" data-i18n-title="Номер по порядку" title="Номер по порядку" data-i18n="№ п/п">№ п/п</th>
                                             <th scope="col" class="text-nowrap" data-i18n-title="Шифр позиции норматива" title="Шифр позиции норматива" data-i18n="Шифр">Шифр</th>
                                             <th scope="col" class="tender-col-name" data-i18n-title="Наименование работ и затрат" title="Наименование работ и затрат" data-i18n="Наименование работ и затрат">Наименование работ и затрат</th>
+                                            <th scope="col" class="text-nowrap" data-i18n="Вид техники">Вид техники</th>
                                             <th scope="col" class="text-nowrap" data-i18n-title="Единица измерения" title="Единица измерения" data-i18n="Ед. изм.">Ед. изм.</th>
                                             <th scope="col" class="text-end text-nowrap" data-i18n-title="Количество" title="Количество" data-i18n="Количество">Количество</th>
                                             <th scope="col" class="text-end text-nowrap" data-i18n-title="Стоимость единицы" title="Стоимость единицы" data-i18n="Стоимость ед.">Стоимость ед.</th>
@@ -509,6 +510,7 @@
                             <select id="rentVehicleSelect" class="form-select" required>
                                 <option value="" data-i18n="Выберите ТС из парка...">Выберите ТС из парка...</option>
                             </select>
+                            <p id="rentVehicleHint" class="text-muted small mb-0 mt-2 d-none"></p>
                         </div>
                     </div>
                     <div class="row g-3">
